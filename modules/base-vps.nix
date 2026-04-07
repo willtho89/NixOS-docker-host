@@ -25,6 +25,12 @@
   };
 
   boot.loader.efi.canTouchEfiVariables = false;
+  boot.kernelModules = [
+    "iptable_nat"
+    "ip6table_nat"
+    "nf_nat"
+    "xt_MASQUERADE"
+  ];
   boot.kernel.sysctl = {
     "vm.overcommit_memory" = 1;
   };
