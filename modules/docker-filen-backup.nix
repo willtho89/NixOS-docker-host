@@ -79,6 +79,66 @@ let
         filen --skip-update "$@"
       }
 
+      list_remote_archives() {
+        filen_cmd --json ls -l "$remote_host_dir" \
+          | grep -o "name: '[^']*'" \
+          | sed "s/^name: '//; s/'$//" \
+          | grep "^$archive_prefix-.*\\.tar\\.zst$" \
+          | sort -r
+      }
+
+      archive_epoch() {
+        local name="$1"
+        local stamp
+
+        stamp="''${name#"$archive_prefix-"}"
+        stamp="''${stamp%.tar.zst}"
+
+        date -u -d \
+          "''${stamp:0:4}-''${stamp:4:2}-''${stamp:6:2} ''${stamp:9:2}:''${stamp:11:2}:''${stamp:13:2}" \
+          +%s
+      }
+
+      apply_remote_retention() {
+        local now
+        local weekly_kept=0
+        local monthly_kept=0
+        local name
+        local archive_time
+        local age_days
+        local -a names=()
+        declare -A keep=()
+
+        mapfile -t names < <(list_remote_archives)
+        if (( ''${#names[@]} == 0 )); then
+          return
+        fi
+
+        now=$(date -u +%s)
+
+        for name in "''${names[@]}"; do
+          archive_time=$(archive_epoch "$name")
+          age_days=$(( (now - archive_time) / 86400 ))
+
+          if (( age_days < 3 )); then
+            keep["$name"]=1
+          elif (( age_days < 14 && weekly_kept == 0 )); then
+            keep["$name"]=1
+            weekly_kept=1
+          elif (( age_days < 45 && monthly_kept == 0 )); then
+            keep["$name"]=1
+            monthly_kept=1
+          fi
+        done
+
+        for name in "''${names[@]}"; do
+          if [[ -z "''${keep[$name]:-}" ]]; then
+            log "Removing expired remote archive $remote_host_dir/$name"
+            filen_cmd rm --no-trash -y "$remote_host_dir/$name"
+          fi
+        done
+      }
+
       ensure_remote_dir() {
         local path="$1"
 
@@ -135,6 +195,8 @@ let
 
       log "Uploading $archive_path to Filen at $remote_host_dir"
       filen_cmd upload "$archive_path" "$remote_host_dir"
+
+      apply_remote_retention
 
       log "Cleaning up local archive directory $archive_dir"
       find "$archive_dir" -mindepth 1 -maxdepth 1 -type f -delete

@@ -95,7 +95,7 @@ sudo nixos-rebuild switch --impure --flake /path/to/repo#server
 
 ## Docker Backup To Filen
 
-The repo can optionally back up `/srv/docker` by stopping the compose stack, creating a `.tar.zst` archive, starting the stack again, uploading the archive to `/.backups/<hostname>/` in Filen, and removing the local archive after a successful upload.
+The repo can optionally back up `/srv/docker` by stopping the compose stack, creating a `.tar.zst` archive, starting the stack again, uploading the archive to `/.backups/<hostname>/` in Filen, pruning older remote backups, and removing the local archive after a successful upload.
 
 Enable it in `host-config.nix`:
 
@@ -117,7 +117,13 @@ Authentication is intentionally kept out of git. After deploying, use one of the
 
 If you want to generate the auth config on the server, the `filen` CLI is installed when the backup module is enabled. Point it at the backup data directory before running `filen export-auth-config`.
 
-Remote cleanup is manual for now. The job does not keep local backup history beyond the current run.
+Remote retention is applied after each successful upload:
+
+- keep all backups newer than 3 days
+- keep the newest backup between 3 and 14 days old
+- keep the newest backup between 14 and 45 days old
+
+Local backup history is not kept beyond the current run.
 
 `persistent = false` means enabling or redeploying the timer does not immediately run a missed backup. Set it to `true` only if you want systemd to catch up missed runs automatically.
 
