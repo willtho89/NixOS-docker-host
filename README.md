@@ -37,8 +37,11 @@ cp host-config.example.nix host-config.nix
 - `network.ipv4Address`
 - `network.ipv4Gateway`
 - `network.ipv6Address` and `network.ipv6Gateway` if your provider gives you IPv6
+- `deployment.host`
 - `access.rootAuthorizedKeys`
 - `access.adminUser`
+
+Use `deployment.host` for the SSH endpoint you actually deploy to. That can be an IPv4 address, an IPv6 address, or a DNS name. Keep `network.ipv4Address` as the interface address in CIDR notation, for example `203.0.113.10/24`.
 
 3. Validate the configuration locally:
 
@@ -55,10 +58,12 @@ This repo is set up for `nixos-anywhere`, which is the simplest way to install o
 3. Install using `nixos-anywhere`:
 
 ```bash
+DEPLOY_HOST=$(nix eval --impure --raw --expr '(import ./host-config.nix).deployment.host')
+
 nix run github:nix-community/nixos-anywhere -- \
   --option pure-eval false \
   --flake .#server \
-  root@<server-ip-or-dns>
+  "root@${DEPLOY_HOST}"
 ```
 
 4. After the installer finishes, reboot into the new NixOS system and confirm SSH access with the admin user from `host-config.nix`.
@@ -70,13 +75,14 @@ If your provider uses a different disk device or needs DHCP instead of static ad
 You can update from your workstation without logging into the server shell directly:
 
 ```bash
+DEPLOY_HOST=$(nix eval --impure --raw --expr '(import ./host-config.nix).deployment.host')
+
 nix run nixpkgs#nixos-rebuild -- \
-  --impure \
   --fast \
   switch \
   --flake .#server \
-  --build-host root@<server-ip-or-dns> \
-  --target-host root@<server-ip-or-dns>
+  --build-host "root@${DEPLOY_HOST}" \
+  --target-host "root@${DEPLOY_HOST}"
 ```
 
 If you are deploying from macOS or any non-`x86_64-linux` machine, `--build-host` is required so the NixOS system is built on a Linux machine instead of locally. Using the same server for both `--build-host` and `--target-host` is the simplest option for a single VPS.

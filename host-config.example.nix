@@ -32,6 +32,10 @@
     mtu = 1500;
   };
 
+  deployment = {
+    host = "203.0.113.10";
+  };
+
   access = {
     rootAuthorizedKeys = [
       "ssh-ed25519 AAAA... replace-me"
