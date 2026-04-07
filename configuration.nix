@@ -5,7 +5,16 @@ let
   adminGroup = adminUser.group or adminUser.name;
   adminUid = adminUser.uid or null;
   adminGid = adminUser.gid or null;
-  adminExtraGroups = lib.unique ([ "wheel" ] ++ (adminUser.extraGroups or [ ]));
+  dockerLayout = hostConfig.dockerLayout or { };
+  dockerRootDir = dockerLayout.rootDir or "/srv/docker";
+  dockerAppsDir = dockerLayout.appsDir or "${dockerRootDir}/apps";
+  dockerDataDir = dockerLayout.dataDir or "${dockerRootDir}/data";
+  dockerDataUser = dockerLayout.dataUser or { };
+  dockerDataUserName = dockerDataUser.name or "dockerapps";
+  dockerDataGroup = dockerDataUser.group or "docker-data";
+  dockerDataUid = dockerDataUser.uid or null;
+  dockerDataGid = dockerDataUser.gid or null;
+  adminExtraGroups = lib.unique ([ "wheel" dockerDataGroup ] ++ (adminUser.extraGroups or [ ]));
   network = hostConfig.network;
   ipv4Address = network.ipv4Address or null;
   ipv6Address = network.ipv6Address or null;
@@ -71,6 +80,9 @@ in
   users.groups.${adminGroup} = lib.optionalAttrs (adminGid != null) {
     gid = adminGid;
   };
+  users.groups.${dockerDataGroup} = lib.optionalAttrs (dockerDataGid != null) {
+    gid = dockerDataGid;
+  };
   users.users.${adminUser.name} = {
     isNormalUser = true;
     group = adminGroup;
@@ -79,8 +91,21 @@ in
   } // lib.optionalAttrs (adminUid != null) {
     uid = adminUid;
   };
+  users.users.${dockerDataUserName} = {
+    isSystemUser = true;
+    group = dockerDataGroup;
+    description = "Docker application data owner";
+    home = dockerDataDir;
+    createHome = false;
+  } // lib.optionalAttrs (dockerDataUid != null) {
+    uid = dockerDataUid;
+  };
 
   systemd.tmpfiles.rules = [
-    "d /srv/docker 0755 ${adminUser.name} ${adminGroup} -"
+    "d ${dockerRootDir} 0750 ${adminUser.name} ${dockerDataGroup} -"
+    "d ${dockerAppsDir} 2770 ${dockerDataUserName} ${dockerDataGroup} -"
+    "d ${dockerDataDir} 2770 ${dockerDataUserName} ${dockerDataGroup} -"
+    "Z ${dockerAppsDir} 2770 ${dockerDataUserName} ${dockerDataGroup} -"
+    "Z ${dockerDataDir} 2770 ${dockerDataUserName} ${dockerDataGroup} -"
   ];
 }

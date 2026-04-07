@@ -82,6 +82,7 @@ Security defaults in the shared VPS module:
 - Docker and WireGuard-style forwarding still work, but listening ports should now be declared in `network.allowedTCPPorts` and `network.allowedUDPPorts`, for example `80`, `443`, and `51820`
 - Automatic upgrades are enabled by default, with a daily update at `04:30` and an allowed reboot window from `05:00` to `06:00`
 - Journald is retained persistently, Docker logs go to journald, and auditd records config changes plus privilege-escalation events
+- `/srv/docker/apps` and `/srv/docker/data` are owned by a dedicated service account declared under `dockerLayout.dataUser`
 
 If your provider uses a different disk device or needs DHCP instead of static addressing, change those values in `host-config.nix` before running the install.
 
@@ -157,6 +158,32 @@ sudo journalctl -u sshd
 sudo journalctl CONTAINER_NAME=wg-easy
 sudo journalctl CONTAINER_NAME=traefik
 sudo ausearch -k priv-esc
+```
+
+## Docker Directory Ownership
+
+The shared config gives the dedicated Docker service identity ownership of the directories containers may need to modify:
+
+- `/srv/docker/apps` is owned by `dockerLayout.dataUser`
+- `/srv/docker/data` is owned by `dockerLayout.dataUser`
+- the admin user is added to that Docker data group so you keep access through group membership
+
+Default example:
+
+```nix
+dockerLayout.dataUser = {
+  name = "dockerapps";
+  group = "docker-data";
+  uid = 1100;
+  gid = 1100;
+};
+```
+
+If your compose stack currently uses `PUID` and `PGID`, update `.env` after deployment to use the dedicated Docker data user instead of your admin UID/GID. For the example above:
+
+```dotenv
+PUID=1100
+PGID=1100
 ```
 
 ## Docker Backup To Filen

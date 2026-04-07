@@ -54,6 +54,13 @@
     maxRetentionSec = "1month";
   };
 
+  dockerLayout.dataUser = {
+    name = "dockerapps";
+    group = "docker-data";
+    uid = 1100;
+    gid = 1100;
+  };
+
   access = {
     wheelNeedsPassword = true;
     adminUser = {
