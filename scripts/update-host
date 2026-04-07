@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+host_config_path="$repo_dir/host-config.nix"
+
+cd "$repo_dir"
+
+if [[ -n "$(git status --porcelain)" ]]; then
+  echo "Refusing to update from a dirty checkout: $repo_dir" >&2
+  echo "Commit, stash, or discard local changes first." >&2
+  exit 1
+fi
+
+if [[ ! -f "$host_config_path" ]]; then
+  echo "Missing host config: $host_config_path" >&2
+  echo "Copy host-config.example.nix to host-config.nix before updating this host." >&2
+  exit 1
+fi
+
+git pull --ff-only
+exec sudo nixos-rebuild switch --flake "path:$repo_dir#server"

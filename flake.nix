@@ -11,29 +11,18 @@
 
   outputs = { nixpkgs, disko, ... }:
     let
+      repoHostConfigPath = ./host-config.nix;
+      envHostConfigPath = builtins.getEnv "HOST_CONFIG_PATH";
       hostConfigPath =
-        let
-          configuredPath = builtins.getEnv "HOST_CONFIG_PATH";
-          pwd = builtins.getEnv "PWD";
-        in
-          if configuredPath != "" then
-            configuredPath
-          else if pwd != "" then
-            "${pwd}/host-config.nix"
-          else
-            throw ''
-              Missing host configuration path.
-              Run Nix commands with --impure from the repository root, or set HOST_CONFIG_PATH to an absolute host-config.nix path.
-            '';
-
-      hostConfig =
-        if builtins.pathExists hostConfigPath then
-          import hostConfigPath
+        if builtins.pathExists repoHostConfigPath then
+          repoHostConfigPath
+        else if envHostConfigPath == "" then
+          ./host-config.example.nix
+        else if builtins.substring 0 1 envHostConfigPath != "/" then
+          throw "HOST_CONFIG_PATH must be an absolute path"
         else
-          throw ''
-            Missing host configuration: ${hostConfigPath}
-            Copy ./host-config.example.nix to ./host-config.nix and fill in your machine-specific values.
-          '';
+          /. + envHostConfigPath;
+      hostConfig = import hostConfigPath;
 
       systemConfig = nixpkgs.lib.nixosSystem {
         system = hostConfig.system;

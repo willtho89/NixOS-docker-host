@@ -1,8 +1,6 @@
 # NixOS VPS
 
-Single-server NixOS VPS repository with a local, git-ignored host settings file for machine-specific values such as IPs, MAC addresses, and SSH access.
-
-Because `host-config.nix` is intentionally not tracked by git, flake-based commands in this repo must be run with impure evaluation enabled.
+Single-server NixOS VPS repository with a public example host config and a private local host config for real machine-specific values such as IPs, MAC addresses, and SSH access.
 
 ## Repository Layout
 
@@ -10,8 +8,8 @@ Because `host-config.nix` is intentionally not tracked by git, flake-based comma
 - `modules/base-vps.nix`: shared VPS defaults
 - `configuration.nix`: server module
 - `disko-config.nix`: disk layout for `disko`
-- `host-config.example.nix`: template for machine-specific settings
-- `host-config.nix`: local machine-specific settings, intentionally ignored by git
+- `host-config.example.nix`: tracked example host config
+- `host-config.nix`: ignored real host config used for actual deployments
 
 ## Prerequisites
 
@@ -22,7 +20,7 @@ Because `host-config.nix` is intentionally not tracked by git, flake-based comma
 
 ## Configure A VPS
 
-1. Copy the example host settings file and edit it for your server:
+1. Copy the example config and edit the private local copy for your server:
 
 ```bash
 cp host-config.example.nix host-config.nix
@@ -43,10 +41,16 @@ cp host-config.example.nix host-config.nix
 
 Use `deployment.host` for the SSH endpoint you actually deploy to. That can be an IPv4 address, an IPv6 address, or a DNS name. Keep `network.ipv4Address` as the interface address in CIDR notation, for example `203.0.113.10/24`.
 
+The flake resolves host config in this order:
+
+- `./host-config.nix` when the repo is evaluated as a local `path:` flake
+- `HOST_CONFIG_PATH=/absolute/path/to/host-config.nix` for CI or external config locations
+- `./host-config.example.nix` as the safe public fallback
+
 3. Validate the configuration locally:
 
 ```bash
-nix build --impure .#nixosConfigurations.server.config.system.build.toplevel --no-link
+nix build --no-link "path:$PWD#nixosConfigurations.server.config.system.build.toplevel"
 ```
 
 ## Install NixOS On A VPS Anywhere
@@ -54,15 +58,14 @@ nix build --impure .#nixosConfigurations.server.config.system.build.toplevel --n
 This repo is set up for `nixos-anywhere`, which is the simplest way to install onto a remote VPS from your local machine.
 
 1. Boot the VPS into the provider's rescue or installer environment.
-2. Confirm the target disk name and network values you will place in `host-config.nix`.
+2. Confirm the target disk name and network values in `host-config.nix`.
 3. Install using `nixos-anywhere`:
 
 ```bash
-DEPLOY_HOST=$(nix eval --impure --raw --expr '(import ./host-config.nix).deployment.host')
+DEPLOY_HOST=$(nix eval --raw --file ./host-config.nix deployment.host)
 
 nix run github:nix-community/nixos-anywhere -- \
-  --option pure-eval false \
-  --flake .#server \
+  --flake "path:$PWD#server" \
   "root@${DEPLOY_HOST}"
 ```
 
@@ -75,22 +78,46 @@ If your provider uses a different disk device or needs DHCP instead of static ad
 You can update from your workstation without logging into the server shell directly:
 
 ```bash
-DEPLOY_HOST=$(nix eval --impure --raw --expr '(import ./host-config.nix).deployment.host')
+DEPLOY_HOST=$(nix eval --raw --file ./host-config.nix deployment.host)
 
 nix run nixpkgs#nixos-rebuild -- \
   --no-reexec \
   switch \
-  --flake .#server \
+  --flake "path:$PWD#server" \
   --build-host "root@${DEPLOY_HOST}" \
   --target-host "root@${DEPLOY_HOST}"
 ```
 
 If you are deploying from macOS or any non-`x86_64-linux` machine, `--build-host` is required so the NixOS system is built on a Linux machine instead of locally. Using the same server for both `--build-host` and `--target-host` is the simplest option for a single VPS.
 
-Or run the switch directly on the server after pulling the repo:
+You can also keep a checkout on the host itself. The recommended location for a single-server setup is `/etc/nixos`, with the repo treated as the source of truth and all changes made on your workstation first.
+
+Initial setup on the host:
 
 ```bash
-sudo nixos-rebuild switch --impure --flake /path/to/repo#server
+sudo git clone https://github.com/willtho89/NixOS-docker-host.git /etc/nixos
+cd /etc/nixos
+```
+
+Host-side update workflow:
+
+```bash
+cd /etc/nixos
+./scripts/update-host
+```
+
+The helper script does three things:
+
+- refuses to update from a dirty checkout
+- runs `git pull --ff-only`
+- runs `sudo nixos-rebuild switch --flake path:/etc/nixos#server`
+
+If you prefer to run the steps manually:
+
+```bash
+cd /etc/nixos
+git pull --ff-only
+sudo nixos-rebuild switch --flake path:/etc/nixos#server
 ```
 
 ## Docker Backup To Filen
@@ -139,5 +166,9 @@ sudo docker-filen-restore example-vps-20260407T040000Z.tar.zst
 ## Publish This Repo
 
 - Commit `flake.nix`, `flake.lock`, `README.md`, `modules/`, `configuration.nix`, `disko-config.nix`, and `host-config.example.nix`
-- Do not commit `host-config.nix`
-- For another server, start a new repo from this one and replace the values in `host-config.nix`
+- Do not commit `host-config.nix`, `secrets/`, or any other live host-specific overlays
+- For another server, copy `host-config.example.nix` to `host-config.nix` and replace the values there
+
+## CI And Automation
+
+For a pipeline or any non-interactive deployment runner, the simplest option is to materialize `host-config.nix` inside the checkout and evaluate the repo as `path:$PWD#server`. If the host config must live outside the checkout, point `HOST_CONFIG_PATH` at that absolute path and use `--impure` on the Nix command that evaluates this flake.
