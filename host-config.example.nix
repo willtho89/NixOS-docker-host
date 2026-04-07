@@ -24,6 +24,8 @@
       "1.1.1.1"
       "2606:4700:4700::1111"
     ];
+    allowedTCPPorts = [ 80 443 ];
+    allowedUDPPorts = [ 80 443 51820 ];
     searchDomains = [ "example.internal" ];
     ipv4Address = "203.0.113.10/24";
     ipv4Gateway = "203.0.113.1";
@@ -36,7 +38,24 @@
     host = "203.0.113.10";
   };
 
+  maintenance.autoUpgrade = {
+    enable = true;
+    repoDir = "/etc/nixos";
+    dates = "04:30";
+    allowReboot = true;
+    rebootWindow = {
+      lower = "05:00";
+      upper = "06:00";
+    };
+  };
+
+  logging.journald = {
+    systemMaxUse = "1G";
+    maxRetentionSec = "1month";
+  };
+
   access = {
+    wheelNeedsPassword = true;
     adminUser = {
       name = "deploy";
       group = "deploy";

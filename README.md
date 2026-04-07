@@ -72,6 +72,17 @@ nix run github:nix-community/nixos-anywhere -- \
 
 This configuration disables direct root SSH login after installation. Use the admin user for ongoing access and elevate with `sudo` when needed.
 
+Security defaults in the shared VPS module:
+
+- SSH accepts logins only for `access.adminUser.name`
+- SSH agent forwarding is disabled
+- SSH remote port forwarding is disabled, while local port forwarding remains allowed
+- `sudo` for `wheel` requires a password unless you explicitly set `access.wheelNeedsPassword = false;`
+- `sshguard`, the firewall, AppArmor, and a stricter kernel/sysctl baseline are enabled
+- Docker and WireGuard-style forwarding still work, but listening ports should now be declared in `network.allowedTCPPorts` and `network.allowedUDPPorts`, for example `80`, `443`, and `51820`
+- Automatic upgrades are enabled by default, with a daily update at `04:30` and an allowed reboot window from `05:00` to `06:00`
+- Journald is retained persistently, Docker logs go to journald, and auditd records config changes plus privilege-escalation events
+
 If your provider uses a different disk device or needs DHCP instead of static addressing, change those values in `host-config.nix` before running the install.
 
 ## Update A VPS Running NixOS
@@ -88,10 +99,10 @@ nix run nixpkgs#nixos-rebuild -- \
   --flake "path:$PWD#server" \
   --build-host "${DEPLOY_USER}@${DEPLOY_HOST}" \
   --target-host "${DEPLOY_USER}@${DEPLOY_HOST}" \
-  --use-remote-sudo
+  --sudo
 ```
 
-If you are deploying from macOS or any non-`x86_64-linux` machine, `--build-host` is required so the NixOS system is built on a Linux machine instead of locally. Using the same server for both `--build-host` and `--target-host` is the simplest option for a single VPS. `--use-remote-sudo` lets `nixos-rebuild` connect as the admin user and elevate only for the privileged steps on the remote host.
+If you are deploying from macOS or any non-`x86_64-linux` machine, `--build-host` is required so the NixOS system is built on a Linux machine instead of locally. Using the same server for both `--build-host` and `--target-host` is the simplest option for a single VPS. `--sudo` lets `nixos-rebuild` connect as the admin user and elevate only for the privileged steps on the remote host.
 
 You can also keep a checkout on the host itself. The recommended location for a single-server setup is `/etc/nixos`, with the repo treated as the source of truth and all changes made on your workstation first.
 
@@ -119,6 +130,33 @@ If you prefer to run the steps manually:
 cd /etc/nixos
 git pull --ff-only
 sudo nixos-rebuild switch --flake path:/etc/nixos#server
+```
+
+## Automatic Updates And Auditing
+
+The shared VPS module enables `system.autoUpgrade` by default. On the host, the generated `nixos-upgrade` job first runs `git -C /etc/nixos pull --ff-only`, then rebuilds `path:/etc/nixos#server`. If the checkout is dirty or `host-config.nix` is missing, the upgrade aborts instead of applying from an unexpected state.
+
+Default maintenance policy:
+
+- upgrade check at `04:30`
+- automatic reboot allowed only between `05:00` and `06:00`
+- settings can be overridden in `host-config.nix` under `maintenance.autoUpgrade`
+
+Default logging and audit policy:
+
+- persistent journald retention with overridable limits under `logging.journald`
+- Docker daemon and container logs written to journald
+- SSH daemon log level raised to `VERBOSE`
+- audit rules for `/etc/nixos`, SSH config, sudo config, and privilege-escalation execs
+
+Useful commands on the host:
+
+```bash
+sudo journalctl -u nixos-upgrade
+sudo journalctl -u sshd
+sudo journalctl CONTAINER_NAME=wg-easy
+sudo journalctl CONTAINER_NAME=traefik
+sudo ausearch -k priv-esc
 ```
 
 ## Docker Backup To Filen
