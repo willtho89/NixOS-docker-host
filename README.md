@@ -15,7 +15,7 @@ Single-server NixOS VPS repository with a public example host config and a priva
 
 - Nix with flakes enabled on the machine you use for deployment
 - SSH access to the target VPS
-- A provider rescue environment or installer environment that lets you SSH in as `root`
+- A provider rescue environment or installer environment that lets you SSH in as `root` for the initial install
 - A target disk device name for the VPS, for example `/dev/sda` or `/dev/vda`
 
 ## Configure A VPS
@@ -36,7 +36,6 @@ cp host-config.example.nix host-config.nix
 - `network.ipv4Gateway`
 - `network.ipv6Address` and `network.ipv6Gateway` if your provider gives you IPv6
 - `deployment.host`
-- `access.rootAuthorizedKeys`
 - `access.adminUser`
 
 Use `deployment.host` for the SSH endpoint you actually deploy to. That can be an IPv4 address, an IPv6 address, or a DNS name. Keep `network.ipv4Address` as the interface address in CIDR notation, for example `203.0.113.10/24`.
@@ -71,6 +70,8 @@ nix run github:nix-community/nixos-anywhere -- \
 
 4. After the installer finishes, reboot into the new NixOS system and confirm SSH access with the admin user from `host-config.nix`.
 
+This configuration disables direct root SSH login after installation. Use the admin user for ongoing access and elevate with `sudo` when needed.
+
 If your provider uses a different disk device or needs DHCP instead of static addressing, change those values in `host-config.nix` before running the install.
 
 ## Update A VPS Running NixOS
@@ -79,16 +80,18 @@ You can update from your workstation without logging into the server shell direc
 
 ```bash
 DEPLOY_HOST=$(nix eval --raw --file ./host-config.nix deployment.host)
+DEPLOY_USER=$(nix eval --raw --file ./host-config.nix access.adminUser.name)
 
 nix run nixpkgs#nixos-rebuild -- \
   --no-reexec \
   switch \
   --flake "path:$PWD#server" \
-  --build-host "root@${DEPLOY_HOST}" \
-  --target-host "root@${DEPLOY_HOST}"
+  --build-host "${DEPLOY_USER}@${DEPLOY_HOST}" \
+  --target-host "${DEPLOY_USER}@${DEPLOY_HOST}" \
+  --use-remote-sudo
 ```
 
-If you are deploying from macOS or any non-`x86_64-linux` machine, `--build-host` is required so the NixOS system is built on a Linux machine instead of locally. Using the same server for both `--build-host` and `--target-host` is the simplest option for a single VPS.
+If you are deploying from macOS or any non-`x86_64-linux` machine, `--build-host` is required so the NixOS system is built on a Linux machine instead of locally. Using the same server for both `--build-host` and `--target-host` is the simplest option for a single VPS. `--use-remote-sudo` lets `nixos-rebuild` connect as the admin user and elevate only for the privileged steps on the remote host.
 
 You can also keep a checkout on the host itself. The recommended location for a single-server setup is `/etc/nixos`, with the repo treated as the source of truth and all changes made on your workstation first.
 

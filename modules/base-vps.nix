@@ -35,7 +35,7 @@ in
     openFirewall = true;
     ports = [ 22 ];
     settings = {
-      PermitRootLogin = "prohibit-password";
+      PermitRootLogin = "no";
       PasswordAuthentication = false;
       KbdInteractiveAuthentication = false;
     };

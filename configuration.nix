@@ -5,6 +5,7 @@ let
   adminGroup = adminUser.group or adminUser.name;
   adminUid = adminUser.uid or null;
   adminGid = adminUser.gid or null;
+  adminExtraGroups = lib.unique ([ "wheel" ] ++ (adminUser.extraGroups or [ ]));
   network = hostConfig.network;
   ipv4Address = network.ipv4Address or null;
   ipv6Address = network.ipv6Address or null;
@@ -67,16 +68,13 @@ in
       MTUBytes = toString (network.mtu or 1500);
     };
   };
-
-  users.users.root.openssh.authorizedKeys.keys = hostConfig.access.rootAuthorizedKeys;
-
   users.groups.${adminGroup} = lib.optionalAttrs (adminGid != null) {
     gid = adminGid;
   };
   users.users.${adminUser.name} = {
     isNormalUser = true;
     group = adminGroup;
-    extraGroups = adminUser.extraGroups;
+    extraGroups = adminExtraGroups;
     openssh.authorizedKeys.keys = adminUser.authorizedKeys;
   } // lib.optionalAttrs (adminUid != null) {
     uid = adminUid;

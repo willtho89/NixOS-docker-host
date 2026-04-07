@@ -37,9 +37,6 @@
   };
 
   access = {
-    rootAuthorizedKeys = [
-      "ssh-ed25519 AAAA... replace-me"
-    ];
     adminUser = {
       name = "deploy";
       group = "deploy";
