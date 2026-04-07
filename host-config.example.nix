@@ -39,6 +39,8 @@
     adminUser = {
       name = "deploy";
       group = "deploy";
+      uid = 1000;
+      gid = 995;
       extraGroups = [ "wheel" "docker" ];
       authorizedKeys = [
         "ssh-ed25519 AAAA... replace-me"
