@@ -96,21 +96,19 @@ Initial setup on the host:
 
 ```bash
 sudo git clone https://github.com/willtho89/NixOS-docker-host.git /etc/nixos
-cd /etc/nixos
 ```
 
 Host-side update workflow:
 
 ```bash
-cd /etc/nixos
-./scripts/update-host
+update-host
 ```
 
-The helper script does three things:
+The installed `update-host` command forwards to `/etc/nixos/scripts/update-host`, which does three things:
 
 - refuses to update from a dirty checkout
 - runs `git pull --ff-only`
-- runs `sudo nixos-rebuild switch --flake path:/etc/nixos#server`
+- runs `nixos-rebuild switch --flake path:/etc/nixos#server` as root, or `sudo` when needed
 
 If you prefer to run the steps manually:
 

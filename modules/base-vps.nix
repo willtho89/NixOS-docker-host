@@ -1,5 +1,30 @@
 { pkgs, ... }:
 
+let
+  updateHost = pkgs.writeShellApplication {
+    name = "update-host";
+    runtimeInputs = with pkgs; [
+      coreutils
+    ];
+    text = ''
+      #!/usr/bin/env bash
+      set -euo pipefail
+
+      repo_dir=/etc/nixos
+      update_script="$repo_dir/scripts/update-host"
+
+      if [[ ! -x "$update_script" ]]; then
+        echo "Missing host checkout at $repo_dir." >&2
+        echo "Initial setup on the host:" >&2
+        echo "  sudo git clone https://github.com/willtho89/NixOS-docker-host.git $repo_dir" >&2
+        exit 1
+      fi
+
+      exec "$update_script" "$@"
+    '';
+  };
+in
+
 {
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
 
@@ -40,5 +65,6 @@
     git
     curl
     htop
+    updateHost
   ];
 }

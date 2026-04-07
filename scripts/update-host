@@ -19,4 +19,9 @@ if [[ ! -f "$host_config_path" ]]; then
 fi
 
 git pull --ff-only
+
+if [[ "$EUID" -eq 0 ]]; then
+  exec nixos-rebuild switch --flake "path:$repo_dir#server"
+fi
+
 exec sudo nixos-rebuild switch --flake "path:$repo_dir#server"
