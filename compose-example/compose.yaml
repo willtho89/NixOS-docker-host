@@ -1,0 +1,34 @@
+include:
+  - apps/adguard/compose.yaml
+  - apps/aiometadata/compose.yaml
+  - apps/aiostreams/compose.yaml
+  - apps/authelia/compose.yaml
+  - apps/comet/compose.yaml
+  - apps/jackett/compose.yaml
+  - apps/jackettio/compose.yaml
+  - apps/librarysync/compose.yaml
+  - apps/librespeed/compose.yaml
+  - apps/nzbdav/compose.yaml
+  - apps/nzbhydra2/compose.yaml
+  - apps/stremthru/compose.yaml
+  - apps/syncribullet/compose.yaml
+  - apps/traefik/compose.yaml
+  - apps/warp/compose.yaml
+  - apps/zilean/compose.yaml
+  - apps/wg-easy/compose.yaml
+networks:
+  default:
+    name: ${DOCKER_NETWORK:-aio_default}
+    external: ${DOCKER_NETWORK_EXTERNAL:-false}
+    ipam:
+      config:
+        - subnet: 172.18.0.0/16
+
+  wg:
+    driver: bridge
+    enable_ipv6: true
+    ipam:
+      driver: default
+      config:
+        - subnet: 10.42.42.0/24
+        - subnet: fdcc:ad94:bacf:61a3::/64

@@ -142,6 +142,10 @@ in
     "xt_MASQUERADE"
   ];
   boot.kernel.sysctl = {
+    "net.core.rmem_default" = 8388608;
+    "net.core.rmem_max" = 8388608;
+    "net.core.wmem_default" = 8388608;
+    "net.core.wmem_max" = 8388608;
     "net.ipv4.ip_forward" = 1;
     "net.ipv6.conf.all.forwarding" = 1;
     "net.ipv6.conf.default.forwarding" = 1;

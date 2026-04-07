@@ -24,7 +24,7 @@
       "1.1.1.1"
       "2606:4700:4700::1111"
     ];
-    allowedTCPPorts = [ 80 443 ];
+    allowedTCPPorts = [ 80 443 853 ];
     allowedUDPPorts = [ 80 443 51820 ];
     searchDomains = [ "example.internal" ];
     ipv4Address = "203.0.113.10/24";
@@ -77,10 +77,24 @@
 
   backups.dockerToFilen = {
     enable = true;
-    sourceDir = "/srv/docker";
+    sourceDir = "/srv/docker/data";
+    projectDir = "/srv/docker";
     composeFile = "/srv/docker/compose.yaml";
     environmentFile = "/var/lib/docker-filen-backup/backup.env";
     schedule = "*-*-* 04:00:00 UTC";
     persistent = false;
+  };
+
+  composeStack = {
+    enable = false;
+    serviceName = "docker-compose-apps";
+    syncFiles = true;
+    sourceDir = ./compose-example;
+    projectDir = "/srv/docker";
+    composeFile = "/srv/docker/compose.yaml";
+    useSopsSecrets = true;
+    environment = {
+      COMPOSE_PROFILES = "required,aiostreams,aiometadata,syncribullet,wg-easy,nzbdav,adguard,warp,librarysync,librespeed,comet,zilean,stremthru,jackettio,jackett,nzbhydra2";
+    };
   };
 }

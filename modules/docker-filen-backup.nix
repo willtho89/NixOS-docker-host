@@ -4,8 +4,11 @@ let
   cfg = hostConfig.backups.dockerToFilen or { };
   enabled = cfg.enable or false;
   serviceName = "docker-filen-backup";
-  sourceDir = cfg.sourceDir or "/srv/docker";
-  composeFile = cfg.composeFile or "${sourceDir}/compose.yaml";
+  dockerLayout = hostConfig.dockerLayout or { };
+  dockerRootDir = dockerLayout.rootDir or "/srv/docker";
+  sourceDir = cfg.sourceDir or "${dockerRootDir}/data";
+  composeProjectDir = cfg.projectDir or dockerRootDir;
+  composeFile = cfg.composeFile or "${composeProjectDir}/compose.yaml";
   stateDir = cfg.stateDir or "/var/lib/${serviceName}";
   archiveDir = cfg.archiveDir or "${stateDir}/archives";
   filenDataDir = cfg.filenDataDir or "${stateDir}/filen-cli";
@@ -30,6 +33,7 @@ let
       set -euo pipefail
 
       source_dir=${lib.escapeShellArg sourceDir}
+      compose_project_dir=${lib.escapeShellArg composeProjectDir}
       compose_file=${lib.escapeShellArg composeFile}
       archive_dir=${lib.escapeShellArg archiveDir}
       filen_data_dir=${lib.escapeShellArg filenDataDir}
@@ -54,7 +58,7 @@ let
 
         if (( containers_down == 1 )); then
           log "Backup exited early, bringing containers back up"
-          if ! docker compose --project-directory "$source_dir" -f "$compose_file" up -d; then
+          if ! docker compose --project-directory "$compose_project_dir" -f "$compose_file" up -d; then
             log "Failed to restart containers automatically"
           fi
         fi
@@ -168,7 +172,7 @@ let
       tmp_archive="$archive_path.tmp"
 
       log "Stopping containers from $compose_file"
-      docker compose --project-directory "$source_dir" -f "$compose_file" down
+      docker compose --project-directory "$compose_project_dir" -f "$compose_file" down
       containers_down=1
 
       log "Creating archive $archive_path"
@@ -187,7 +191,7 @@ let
       tmp_archive=""
 
       log "Starting containers"
-      docker compose --project-directory "$source_dir" -f "$compose_file" up -d
+      docker compose --project-directory "$compose_project_dir" -f "$compose_file" up -d
       containers_down=0
 
       ensure_remote_dir "$remote_base_dir"

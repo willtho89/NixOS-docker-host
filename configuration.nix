@@ -26,6 +26,8 @@ in
   imports = [
     (modulesPath + "/profiles/qemu-guest.nix")
     ./modules/base-vps.nix
+    ./modules/compose-stack.nix
+    ./modules/docker-compose-secrets.nix
     ./modules/docker-filen-backup.nix
   ];
 
@@ -107,5 +109,6 @@ in
     "d ${dockerDataDir} 2770 ${dockerDataUserName} ${dockerDataGroup} -"
     "Z ${dockerAppsDir} 2770 ${dockerDataUserName} ${dockerDataGroup} -"
     "Z ${dockerDataDir} 2770 ${dockerDataUserName} ${dockerDataGroup} -"
+    "z ${dockerDataDir}/traefik/acme.json 0600 ${dockerDataUserName} ${dockerDataGroup} -"
   ];
 }

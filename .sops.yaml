@@ -1,0 +1,10 @@
+keys:
+  - &admin_twillems ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQCVVw6EJqvKVYRqI7fZNDl45o6skZ3gF1W6L35KBTSYKKGhRJoUGImtcB04igJspbAE0oairnUFX2rZUUlEqPRhbrcksiUR9BpiEJ046rWshaETLgptxrRE8NrwYa4Ok03KRQWAyO/4eHaHQpVPs703kB8YL0pUw+xvcTn7wYSigUPJMR1v48pKVSp52jwAEx4zRfprEg9LWmjD/TIagwJzJn6/uTvtKEMSBxhgGRG4Hd7BmLnIyCmmxJD7refg/N3tnzl+Yhu8OnpkGdmQ/ripsow7/31qI+ygLEO1RUGK5WHc95wbnN5Icj7g9olqawkQdB8OEbXmQqp7+Op2nYCKj+VeVlJ5xYHueE30oI+FsCb1qfewa8ZjT9LX+emLeFRgxqqI75DD7ziH3scGrRvs74WzvSppcrQ9tP0o/vMBZESz/D9zA9l3wU4h7lCaOIgn9T6xMaB2YTkY/MRLFL2DYpy8epih+CFGrQhncJzf02jB1WnMnBR6q4ZBJZ9iFpM5AF3sr6IlZaQNIaa2ZiqAK8+omZ3fk14wRQKRFmh54klKUpo3qQYGnYn0x4+uV/wBDnlaopnXTPXQobqN8eLMPpYpQVznnvpzn7Otnv9uL/eRnXta2o8s0jVOAjWKWCwEu2O0BBEe2+qobttgs+s0+VIA5xNxCd1KYd1hiL2VRw==
+  - &host_saladprecedestretch age17zknlyd0ddggrzhvfzj44hxc4tmfqzxmxdrqq4955xht3qe8va2sxx8cf9
+
+creation_rules:
+  - path_regex: secrets/[^/]+\.yaml$
+    key_groups:
+      - age:
+          - *admin_twillems
+          - *host_saladprecedestretch

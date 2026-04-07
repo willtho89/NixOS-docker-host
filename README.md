@@ -10,6 +10,7 @@ Single-server NixOS VPS repository with a public example host config and a priva
 - `disko-config.nix`: disk layout for `disko`
 - `host-config.example.nix`: tracked example host config
 - `host-config.nix`: ignored real host config used for actual deployments
+- `secrets/<hostname>.yaml`: tracked encrypted host secrets managed with `sops-nix`
 
 ## Prerequisites
 
@@ -186,16 +187,69 @@ PUID=1100
 PGID=1100
 ```
 
+## Encrypted Secrets In Git
+
+This repo is set up for `sops-nix` with `age` recipients so encrypted secrets can be committed safely.
+
+- `.sops.yaml` defines the repository policy and recipients
+- `secrets/<hostname>.yaml` is the tracked encrypted secret file for a host
+- the server decrypts using `/etc/ssh/ssh_host_ed25519_key`
+- your admin workstation can decrypt using the SSH key that matches `access.adminUser.authorizedKeys`
+
+Typical edit flow:
+
+```bash
+XDG_CACHE_HOME=/tmp/nix-cache nix shell nixpkgs#sops -c sops secrets/<hostname>.yaml
+```
+
+If you prefer a dedicated personal `age` key instead of your SSH key, you can switch the admin recipient in `.sops.yaml` later without changing the host-side setup.
+
+The mirrored `compose-example/.env` is intentionally redacted now. Runtime secrets should come from the encrypted `secrets/` tree instead of tracked plaintext `.env` files.
+
+## Managed Compose Stack
+
+The Docker stack can now be started by a dedicated `systemd` unit instead of a manual shell session.
+
+Enable it in `host-config.nix`:
+
+```nix
+composeStack = {
+  enable = true;
+  syncFiles = true;
+  sourceDir = ./compose-example;
+  projectDir = "/srv/docker";
+  composeFile = "/srv/docker/compose.yaml";
+  useSopsSecrets = true;
+  environment = {
+    COMPOSE_PROFILES = "required,aiostreams,aiometadata,syncribullet,wg-easy,nzbdav,adguard,warp,librarysync,librespeed,comet,zilean,stremthru,jackettio,jackett,nzbhydra2";
+  };
+};
+```
+
+The generated unit:
+
+- waits for Docker and the network
+- can sync the tracked Compose tree into `/srv/docker` before startup
+- removes deleted managed app files from `/srv/docker` on each sync while leaving `/srv/docker/data` untouched
+- injects the rendered `sops` secret environment automatically
+- overlays the Docker Authelia `users.yml` from `sops` so it is not stored in plaintext in the repo copy on the host
+- runs `docker compose up -d --remove-orphans`
+
+That means the app-specific `.env` files can reference secret variables without keeping plaintext credentials in git, while the services themselves still run exactly as Docker containers.
+
+Mutable app state must live under `/srv/docker/data`. The sync service deletes unmanaged files under `/srv/docker/apps`, so runtime-generated config there will be lost on deploy. AdGuard Home now stores both `work` and `conf` in `/srv/docker/data/adguard/`, and the sync step migrates an existing `/srv/docker/apps/adguard/config` into `/srv/docker/data/adguard/conf` once before cleanup. When `useSopsSecrets = true`, the tracked `compose-example/apps/adguard/config/AdGuardHome.yaml` is rendered through `sops` and used to seed the live config only if `/srv/docker/data/adguard/conf/AdGuardHome.yaml` does not already exist, so UI changes are preserved after the initial bootstrap.
+
 ## Docker Backup To Filen
 
-The repo can optionally back up `/srv/docker` by stopping the compose stack, creating a `.tar.zst` archive, starting the stack again, uploading the archive to `/.backups/<hostname>/` in Filen, pruning older remote backups, and removing the local archive after a successful upload.
+The repo can optionally back up `/srv/docker/data` by stopping the compose stack, creating a `.tar.zst` archive of the persistent data directory, starting the stack again, uploading the archive to `/.backups/<hostname>/` in Filen, pruning older remote backups, and removing the local archive after a successful upload.
 
 Enable it in `host-config.nix`:
 
 ```nix
 backups.dockerToFilen = {
   enable = true;
-  sourceDir = "/srv/docker";
+  sourceDir = "/srv/docker/data";
+  projectDir = "/srv/docker";
   composeFile = "/srv/docker/compose.yaml";
   environmentFile = "/var/lib/docker-filen-backup/backup.env";
   schedule = "*-*-* 04:00:00 UTC";
@@ -220,7 +274,9 @@ Local backup history is not kept beyond the current run.
 
 `persistent = false` means enabling or redeploying the timer does not immediately run a missed backup. Set it to `true` only if you want systemd to catch up missed runs automatically.
 
-For restores, the module also installs `docker-filen-restore`. It downloads an archive from `/.backups/<hostname>/` and extracts it back into the parent directory of `sourceDir`. It does not stop or start containers.
+For restores, the module also installs `docker-filen-restore`. It downloads an archive from `/.backups/<hostname>/` and extracts it back into the parent directory of `sourceDir`. With the default `sourceDir = "/srv/docker/data"`, that means it restores only the Docker data tree. It does not stop or start containers.
+
+Managed Compose files are not part of the backup anymore. Restore those by redeploying NixOS, then restore `/srv/docker/data`.
 
 Examples:
 
@@ -231,8 +287,8 @@ sudo docker-filen-restore example-vps-20260407T040000Z.tar.zst
 
 ## Publish This Repo
 
-- Commit `flake.nix`, `flake.lock`, `README.md`, `modules/`, `configuration.nix`, `disko-config.nix`, and `host-config.example.nix`
-- Do not commit `host-config.nix`, `secrets/`, or any other live host-specific overlays
+- Commit `flake.nix`, `flake.lock`, `.sops.yaml`, `README.md`, `modules/`, `configuration.nix`, `disko-config.nix`, `host-config.example.nix`, and the encrypted `secrets/` files
+- Do not commit `host-config.nix` or any other unencrypted live host-specific overlays
 - For another server, copy `host-config.example.nix` to `host-config.nix` and replace the values there
 
 ## CI And Automation

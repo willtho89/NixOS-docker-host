@@ -3,13 +3,17 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
+    sops-nix = {
+      url = "github:Mic92/sops-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     disko = {
       url = "github:nix-community/disko";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
 
-  outputs = { nixpkgs, disko, ... }:
+  outputs = { nixpkgs, disko, sops-nix, ... }:
     let
       repoHostConfigPath = ./host-config.nix;
       envHostConfigPath = builtins.getEnv "HOST_CONFIG_PATH";
@@ -31,6 +35,7 @@
         };
         modules = [
           disko.nixosModules.disko
+          sops-nix.nixosModules.sops
           ./disko-config.nix
           ./configuration.nix
         ];
