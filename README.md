@@ -78,7 +78,7 @@ You can update from your workstation without logging into the server shell direc
 DEPLOY_HOST=$(nix eval --impure --raw --expr '(import ./host-config.nix).deployment.host')
 
 nix run nixpkgs#nixos-rebuild -- \
-  --fast \
+  --no-reexec \
   switch \
   --flake .#server \
   --build-host "root@${DEPLOY_HOST}" \
