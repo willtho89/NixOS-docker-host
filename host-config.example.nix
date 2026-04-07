@@ -51,4 +51,13 @@
       ];
     };
   };
+
+  backups.dockerToFilen = {
+    enable = true;
+    sourceDir = "/srv/docker";
+    composeFile = "/srv/docker/compose.yaml";
+    environmentFile = "/var/lib/docker-filen-backup/backup.env";
+    schedule = "*-*-* 04:00:00 UTC";
+    persistent = false;
+  };
 }

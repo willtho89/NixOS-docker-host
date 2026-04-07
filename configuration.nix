@@ -16,6 +16,7 @@ in
   imports = [
     (modulesPath + "/profiles/qemu-guest.nix")
     ./modules/base-vps.nix
+    ./modules/docker-filen-backup.nix
   ];
 
   system.stateVersion = hostConfig.stateVersion;

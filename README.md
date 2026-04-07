@@ -93,6 +93,43 @@ Or run the switch directly on the server after pulling the repo:
 sudo nixos-rebuild switch --impure --flake /path/to/repo#server
 ```
 
+## Docker Backup To Filen
+
+The repo can optionally back up `/srv/docker` by stopping the compose stack, creating a `.tar.zst` archive, starting the stack again, uploading the archive to `/.backups/<hostname>/` in Filen, and removing the local archive after a successful upload.
+
+Enable it in `host-config.nix`:
+
+```nix
+backups.dockerToFilen = {
+  enable = true;
+  sourceDir = "/srv/docker";
+  composeFile = "/srv/docker/compose.yaml";
+  environmentFile = "/var/lib/docker-filen-backup/backup.env";
+  schedule = "*-*-* 04:00:00 UTC";
+  persistent = false;
+};
+```
+
+Authentication is intentionally kept out of git. After deploying, use one of these approaches on the server:
+
+- Preferred: place a Filen auth config at `/var/lib/docker-filen-backup/filen-cli/.filen-cli-auth-config`
+- Simpler but less secure: create `/var/lib/docker-filen-backup/backup.env` with `FILEN_EMAIL=...` and `FILEN_PASSWORD=...`, plus `FILEN_2FA_CODE=...` if needed
+
+If you want to generate the auth config on the server, the `filen` CLI is installed when the backup module is enabled. Point it at the backup data directory before running `filen export-auth-config`.
+
+Remote cleanup is manual for now. The job does not keep local backup history beyond the current run.
+
+`persistent = false` means enabling or redeploying the timer does not immediately run a missed backup. Set it to `true` only if you want systemd to catch up missed runs automatically.
+
+For restores, the module also installs `docker-filen-restore`. It downloads an archive from `/.backups/<hostname>/` and extracts it back into the parent directory of `sourceDir`. It does not stop or start containers.
+
+Examples:
+
+```bash
+sudo docker-filen-restore latest
+sudo docker-filen-restore example-vps-20260407T040000Z.tar.zst
+```
+
 ## Publish This Repo
 
 - Commit `flake.nix`, `flake.lock`, `README.md`, `modules/`, `configuration.nix`, `disko-config.nix`, and `host-config.example.nix`
