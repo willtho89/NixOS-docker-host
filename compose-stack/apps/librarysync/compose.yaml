@@ -1,0 +1,89 @@
+# apps/librarysync/compose.yaml
+
+x-worker-common: &worker-common
+  image: ghcr.io/willtho89/librarysync:latest
+  env_file: .env
+  command: ["python", "-m", "librarysync.worker"]
+  depends_on:
+    db:
+      condition: service_healthy
+    api:
+      condition: service_healthy
+  restart: unless-stopped
+  healthcheck:
+    test:
+      [
+        "CMD-SHELL",
+        "python -c \"import urllib.request,sys; urllib.request.urlopen('http://api:8000/health', timeout=2); sys.exit(0)\"",
+      ]
+    interval: 120s
+    timeout: 3s
+    retries: 6
+    start_period: 10s
+
+x-worker: &worker
+  <<: *worker-common
+  # keep environment as a dict so overrides are clean/mergeable
+  environment: {}
+
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: librarysync-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-librarysync}
+      POSTGRES_USER: ${POSTGRES_USER:-librarysync}
+      POSTGRES_PASSWORD: ${LIBRARYSYNC_POSTGRES_PASSWORD:?LIBRARYSYNC_POSTGRES_PASSWORD is required}
+    volumes:
+      - ${DOCKER_DATA_DIR}/librarysync/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-librarysync} -d ${POSTGRES_DB:-librarysync}"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
+  api:
+    image: ghcr.io/willtho89/librarysync:latest
+    container_name: librarysync-api
+    env_file: .env
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          python -c "import urllib.request,sys;
+          urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2);
+          sys.exit(0)"
+      interval: 60s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.librarysync.rule=Host(`${LIBRARYSYNC_HOSTNAME?}`)"
+      - "traefik.http.routers.librarysync.entrypoints=websecure"
+      - "traefik.http.routers.librarysync.tls.certresolver=letsencrypt"
+      # - "traefik.http.routers.librarysync.middlewares=authelia@docker"
+      - "traefik.http.services.librarysync.loadbalancer.server.port=8000"
+      - "traefik.http.middlewares.librarysync-compress.compress=true"
+
+  worker-outbox:
+    <<: *worker
+    environment:
+      LIBRARYSYNC_WORKER_MODES: outbox
+
+  worker-metadata:
+    <<: *worker
+    environment:
+      LIBRARYSYNC_WORKER_MODES: metadata,metadata_cache,metadata_backfill
+
+  worker-imports:
+    <<: *worker
+    environment:
+      LIBRARYSYNC_WORKER_MODES: quick_import,import_all,merge_history,merge_all_history,watchlist

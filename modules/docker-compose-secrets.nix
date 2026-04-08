@@ -19,7 +19,7 @@ let
       config.sops.placeholder."compose-domain"
       config.sops.placeholder."compose-adguard-rewrites"
     ]
-    (builtins.readFile ../compose-example/apps/adguard/config/AdGuardHome.yaml);
+    (builtins.readFile ../compose-stack/apps/adguard/config/AdGuardHome.yaml);
   composeProjectEnvTemplate = builtins.replaceStrings
     [
       "DOCKER_DIR=/srv/docker"
@@ -113,7 +113,7 @@ let
       "TRUSTED_UUIDS=${config.sops.placeholder."compose-aiostreams-trusted-uuids"}"
       "TVDB_API_KEY=${config.sops.placeholder."compose-tvdb-api-key"}"
     ]
-    (builtins.readFile ../compose-example/.env);
+    (builtins.readFile ../compose-stack/.env);
 in
 {
   assertions = [

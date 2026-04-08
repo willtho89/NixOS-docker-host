@@ -1,0 +1,53 @@
+services:
+  wg-easy:
+    image: ghcr.io/wg-easy/wg-easy:15
+    cpu_shares: 2048
+    container_name: wg-easy
+    environment:
+      - INSECURE=false
+      - INIT_ENABLED=true
+      - INIT_USERNAME=${ADMIN_USERNAME?}
+      - INIT_PASSWORD=${ADMIN_PASSWORD?}
+      - INIT_PORT=51820
+    networks:
+      default:
+      wg:
+        ipv4_address: 10.42.42.42
+        ipv6_address: fdcc:ad94:bacf:61a3::2a
+        # interface_name: myeth # <--- with docker compose v2.36.0 else,
+        driver_opts:
+          com.docker.network.endpoint.ifname: myeth
+    volumes:
+      - ${DOCKER_DATA_DIR}/wg-easy/:/etc/wireguard
+      - /lib/modules:/lib/modules:ro
+    ports:
+      - "51820:51820/udp"  # WireGuard Port
+      - "51821:51821/tcp"  # WEB UI port
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+      # - NET_RAW # ⚠️ Uncomment if using Podman
+    sysctls:
+      - net.ipv4.ip_forward=1
+      - net.ipv4.conf.all.src_valid_mark=1
+      - net.ipv6.conf.all.disable_ipv6=0
+      - net.ipv6.conf.all.forwarding=1
+      - net.ipv6.conf.default.forwarding=1
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.wgeasy.rule=Host(`${WG_EASY_HOSTNAME?}`)"
+      - "traefik.http.services.wgeasy.loadbalancer.server.port=51821"
+      - "traefik.http.routers.wgeasy.entrypoints=websecure"
+      - "traefik.http.routers.wgeasy.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.wgeasy.middlewares=authelia@docker"
+
+networks:
+  wg:
+    driver: bridge
+    enable_ipv6: true
+    ipam:
+      driver: default
+      config:
+        - subnet: 10.42.42.0/24
+        - subnet: fdcc:ad94:bacf:61a3::/64

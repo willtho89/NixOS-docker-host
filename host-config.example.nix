@@ -93,7 +93,7 @@
     enable = false;
     serviceName = "docker-compose-apps";
     syncFiles = true;
-    sourceDir = ./compose-example;
+    sourceDir = ./compose-stack;
     projectDir = "/srv/docker";
     composeFile = "/srv/docker/compose.yaml";
     useSopsSecrets = true;

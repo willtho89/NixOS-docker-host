@@ -1,0 +1,30 @@
+services:
+  syncribullet:
+    image: aliyss/syncribullet
+    container_name: syncribullet
+    restart: unless-stopped
+    expose:
+      - 3000
+    env_file:
+      - .env
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.syncribullet.rule=Host(`${SYNCRIBULLET_HOSTNAME?}`)"
+      - "traefik.http.routers.syncribullet.entrypoints=websecure"
+      - "traefik.http.routers.syncribullet.tls.certresolver=letsencrypt"
+      - "traefik.http.services.syncribullet.loadbalancer.server.port=3000"
+      - "traefik.http.routers.syncribullet.middlewares=authelia@docker"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--quiet",
+          "--tries=1",
+          "--spider",
+          "http://localhost:3000/manifest.json",   
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s

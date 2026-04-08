@@ -11,7 +11,7 @@ let
   dockerDataGroup = dockerDataUser.group or "docker-data";
   projectDir = cfg.projectDir or dockerRootDir;
   composeFile = cfg.composeFile or "${projectDir}/compose.yaml";
-  sourceDir = cfg.sourceDir or ../compose-example;
+  sourceDir = cfg.sourceDir or ../compose-stack;
   managedSourceDir = "${sourceDir}/";
   syncFiles = cfg.syncFiles or false;
   syncServiceName = "${serviceName}-sync";
@@ -26,7 +26,7 @@ let
   composeProjectEnvTemplatePlain = pkgs.writeText "docker-compose-project.env" (builtins.replaceStrings
     [ "DOCKER_DIR=/srv/docker" "DOMAIN=__DOMAIN__" ]
     [ "DOCKER_DIR=${projectDir}" "DOMAIN=example.com" ]
-    (builtins.readFile ../compose-example/.env));
+    (builtins.readFile ../compose-stack/.env));
   composeProjectEnvTemplate =
     if useSopsSecrets then
       config.sops.templates."docker-compose-project.env".path
