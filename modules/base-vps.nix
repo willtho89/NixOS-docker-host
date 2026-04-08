@@ -5,6 +5,8 @@ let
   wheelNeedsPassword = hostConfig.access.wheelNeedsPassword or true;
   allowedTCPPorts = hostConfig.network.allowedTCPPorts or [ ];
   allowedUDPPorts = hostConfig.network.allowedUDPPorts or [ ];
+  sshguard = hostConfig.security.sshguard or { };
+  sshguardWhitelist = sshguard.whitelist or [ ];
   autoUpgrade = hostConfig.maintenance.autoUpgrade or { };
   autoUpgradeRepoDir = autoUpgrade.repoDir or "/etc/nixos";
   autoUpgradeDates = autoUpgrade.dates or "04:30";
@@ -50,7 +52,10 @@ in
   };
 
   services.resolved.enable = true;
-  services.sshguard.enable = true;
+  services.sshguard = {
+    enable = true;
+    whitelist = sshguardWhitelist;
+  };
   services.journald = {
     storage = "persistent";
     extraConfig = ''

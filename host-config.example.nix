@@ -54,6 +54,10 @@
     maxRetentionSec = "1month";
   };
 
+  security.sshguard = {
+    whitelist = [ "10.42.42.42" ];
+  };
+
   dockerLayout.dataUser = {
     name = "dockerapps";
     group = "docker-data";
