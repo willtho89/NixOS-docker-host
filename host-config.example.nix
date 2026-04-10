@@ -80,7 +80,7 @@
   };
 
   backups.dockerToFilen = {
-    enable = true;
+    enable = false;
     sourceDir = "/srv/docker/data";
     projectDir = "/srv/docker";
     composeFile = "/srv/docker/compose.yaml";
@@ -97,8 +97,5 @@
     projectDir = "/srv/docker";
     composeFile = "/srv/docker/compose.yaml";
     useSopsSecrets = true;
-    environment = {
-      COMPOSE_PROFILES = "required,aiostreams,aiometadata,syncribullet,wg-easy,nzbdav,adguard,warp,librarysync,librespeed,comet,zilean,stremthru,jackettio,jackett,nzbhydra2";
-    };
   };
 }

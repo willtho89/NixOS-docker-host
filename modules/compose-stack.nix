@@ -38,12 +38,32 @@ let
   environmentExportScript = lib.concatStringsSep "\n" (
     lib.mapAttrsToList (name: value: "export ${name}=${lib.escapeShellArg (toString value)}") environment
   );
-  environmentFileSourceScript = lib.concatMapStringsSep "\n" (file: ''
+  environmentFileExportScript = lib.concatMapStringsSep "\n" (file: ''
     if [ -f ${lib.escapeShellArg file} ]; then
-      set -a
-      # shellcheck source=/dev/null
-      . ${lib.escapeShellArg file}
-      set +a
+      while IFS= read -r line || [ -n "$line" ]; do
+        line="''${line%$'\r'}"
+        case "$line" in
+          "" | \#*)
+            continue
+            ;;
+          export\ *)
+            line="''${line#export }"
+            ;;
+        esac
+
+        key="''${line%%=*}"
+        if [ "$key" = "$line" ]; then
+          continue
+        fi
+
+        if [[ ! "$key" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
+          echo "Invalid environment variable name in ${lib.escapeShellArg file}: $key" >&2
+          exit 1
+        fi
+
+        value="''${line#*=}"
+        export "$key=$value"
+      done < ${lib.escapeShellArg file}
     fi
   '') environmentFiles;
   syncScript = pkgs.writeShellApplication {
@@ -137,11 +157,12 @@ let
       set -euo pipefail
 
       ${environmentExportScript}
-      ${environmentFileSourceScript}
 
       if [ ! -f ${lib.escapeShellArg composeFile} ]; then
         exit 0
       fi
+
+      ${environmentFileExportScript}
 
       mapfile -t services < <(
         ${pkgs.docker}/bin/docker compose \
@@ -191,18 +212,11 @@ in
   system.activationScripts.${ensureServiceName} = lib.mkIf enabled {
     deps = [ "users" "groups" "etc" ];
     text = ''
-      ${lib.optionalString useSopsSecrets ''
-        if [ -d ${lib.escapeShellArg projectDir} ]; then
-          install \
-            -m 0640 \
-            -o ${dockerDataUserName} \
-            -g ${dockerDataGroup} \
-            ${lib.escapeShellArg composeProjectEnvTemplate} \
-            ${lib.escapeShellArg "${projectDir}/.env"}
-        fi
+      ${lib.optionalString syncFiles ''
+        ${syncScript}/bin/${syncServiceName}
       ''}
 
-      ${lib.optionalString (!useSopsSecrets) ''
+      ${lib.optionalString (!syncFiles) ''
         if [ -d ${lib.escapeShellArg projectDir} ]; then
           install \
             -m 0640 \
@@ -234,7 +248,12 @@ in
 
   systemd.services.${serviceName} = lib.mkIf enabled {
     description = "Managed Docker Compose stack";
-    reloadTriggers = [ syncScript ];
+    # Apply configuration updates with `docker compose up -d` instead of a full down/up cycle.
+    reloadIfChanged = true;
+    restartTriggers =
+      environmentFiles
+      ++ lib.optional (!syncFiles) composeProjectEnvTemplate;
+    stopIfChanged = false;
     after =
       [
         "docker.service"
@@ -265,10 +284,9 @@ in
       ExecStartPre = "${pkgs.coreutils}/bin/test -f ${composeFile}";
       ExecStart = "${pkgs.docker}/bin/docker compose --project-directory ${projectDir} -f ${composeFile} up -d --remove-orphans";
       ExecStop = "${pkgs.docker}/bin/docker compose --project-directory ${projectDir} -f ${composeFile} down";
-      ExecReload = [
-        "${syncScript}/bin/${syncServiceName}"
-        "${pkgs.docker}/bin/docker compose --project-directory ${projectDir} -f ${composeFile} up -d --remove-orphans"
-      ];
+      ExecReload =
+        lib.optional syncFiles "${syncScript}/bin/${syncServiceName}"
+        ++ [ "${pkgs.docker}/bin/docker compose --project-directory ${projectDir} -f ${composeFile} up -d --remove-orphans" ];
       TimeoutStartSec = "15min";
       TimeoutStopSec = "15min";
     };

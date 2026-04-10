@@ -3,6 +3,7 @@
 let
   cfg = hostConfig.backups.dockerToFilen or { };
   enabled = cfg.enable or false;
+  allowUnmanagedCompose = cfg.allowUnmanagedCompose or false;
   serviceName = "docker-filen-backup";
   dockerLayout = hostConfig.dockerLayout or { };
   dockerRootDir = dockerLayout.rootDir or "/srv/docker";
@@ -329,6 +330,17 @@ let
   };
 in
 lib.mkIf enabled {
+  assertions = [
+    {
+      assertion = (hostConfig.composeStack.enable or false) || allowUnmanagedCompose;
+      message = ''
+        Docker Filen backup expects the managed compose stack to be enabled.
+        Set composeStack.enable = true; or backups.dockerToFilen.allowUnmanagedCompose = true;
+        if you intentionally back up an external compose project.
+      '';
+    }
+  ];
+
   environment.systemPackages = [
     backupScript
     restoreScript

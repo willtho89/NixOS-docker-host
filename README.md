@@ -62,6 +62,14 @@ Validate locally:
 nix build --no-link "path:$PWD#nixosConfigurations.server.config.system.build.toplevel"
 ```
 
+From macOS or any other non-Linux workstation, use a structural check locally:
+
+```bash
+nix flake check --no-build --all-systems
+```
+
+Build the full NixOS system closure on a Linux builder or on the target host.
+
 If you use `HOST_CONFIG_PATH`, evaluate with `--impure`.
 
 ## Install A New VPS
@@ -198,6 +206,8 @@ If `composeStack.useSopsSecrets = true;`, the compose module renders secret-back
 ## Docker Backup To Filen
 
 The Filen backup module is optional and archives `/srv/docker/data` by stopping the compose stack, creating a compressed archive, uploading it, pruning old remote backups, and removing the local archive after success.
+
+By default, the backup module assumes the managed compose stack from this repository is enabled. If you intentionally point it at an external compose project, set `backups.dockerToFilen.allowUnmanagedCompose = true;`.
 
 Example:
 
