@@ -19,7 +19,7 @@
 
   network = {
     useDHCP = false;
-    interfaceMacAddress = "00:11:22:33:44:55";
+    interfaceName = "eth0";
     nameservers = [
       "1.1.1.1"
       "2606:4700:4700::1111"

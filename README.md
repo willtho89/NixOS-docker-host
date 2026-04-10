@@ -43,7 +43,7 @@ Update at least these values in `host-config.nix`:
 - `hostName`
 - `disk.device`
 - `boot.loaderDevice`
-- `network.interfaceMacAddress`
+- `network.interfaceName`
 - `network.ipv4Address`
 - `network.ipv4Gateway`
 - `network.ipv6Address` and `network.ipv6Gateway` if used
@@ -202,6 +202,53 @@ XDG_CACHE_HOME=/tmp/nix-cache nix shell nixpkgs#sops -c sops secrets/<hostname>.
 ```
 
 If `composeStack.useSopsSecrets = true;`, the compose module renders secret-backed files from the encrypted host secret file instead of relying on plaintext values in the tracked compose tree.
+
+### After First Install Or Reinstall
+
+This repository uses the host's `/etc/ssh/ssh_host_ed25519_key` as the machine-side `sops` identity. A fresh install or reinstall generates a new host key, so the tracked secret file must be rekeyed for that new machine before `sops-nix` can decrypt on the host.
+
+1. Fetch the current host SSH public key:
+
+```bash
+ssh <admin-user>@<host> 'sudo cat /etc/ssh/ssh_host_ed25519_key.pub'
+```
+
+2. Convert it to an age recipient:
+
+```bash
+printf '%s\n' 'ssh-ed25519 AAAA... root@host' > /tmp/host_ed25519.pub
+XDG_CACHE_HOME=/tmp/nix-cache nix shell nixpkgs#ssh-to-age -c ssh-to-age -i /tmp/host_ed25519.pub
+```
+
+3. Replace the host recipient in `.sops.yaml` with the new `age...` value.
+
+4. Rekey the host secret file:
+
+```bash
+XDG_CACHE_HOME=/tmp/nix-cache nix shell nixpkgs#sops -c sops updatekeys -y secrets/<hostname>.yaml
+```
+
+If your admin SSH private key is stored under a non-default filename, point `sops` at it explicitly:
+
+```bash
+SOPS_AGE_SSH_PRIVATE_KEY_FILE=~/.ssh/<your-private-key> \
+XDG_CACHE_HOME=/tmp/nix-cache nix shell nixpkgs#sops -c sops updatekeys -y secrets/<hostname>.yaml
+```
+
+5. Apply the updated configuration again so the host can decrypt and render the secret-backed files:
+
+```bash
+DEPLOY_HOST=$(nix eval --raw --file ./host-config.nix deployment.host)
+DEPLOY_USER=$(nix eval --raw --file ./host-config.nix access.adminUser.name)
+
+nix run nixpkgs#nixos-rebuild -- \
+  --no-reexec \
+  switch \
+  --flake "path:$PWD#server" \
+  --build-host "${DEPLOY_USER}@${DEPLOY_HOST}" \
+  --target-host "${DEPLOY_USER}@${DEPLOY_HOST}" \
+  --sudo
+```
 
 ## Docker Backup To Filen
 

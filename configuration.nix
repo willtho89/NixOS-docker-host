@@ -52,7 +52,7 @@ in
 
   systemd.network.networks."10-wan" = {
     matchConfig = {
-      MACAddress = network.interfaceMacAddress;
+      Name = network.interfaceName;
     };
 
     networkConfig = {

@@ -7,6 +7,9 @@ let
   serviceName = "docker-filen-backup";
   dockerLayout = hostConfig.dockerLayout or { };
   dockerRootDir = dockerLayout.rootDir or "/srv/docker";
+  dockerDataUser = dockerLayout.dataUser or { };
+  dockerDataUserName = dockerDataUser.name or "dockerapps";
+  dockerDataGroup = dockerDataUser.group or "docker-data";
   sourceDir = cfg.sourceDir or "${dockerRootDir}/data";
   composeProjectDir = cfg.projectDir or dockerRootDir;
   composeFile = cfg.composeFile or "${composeProjectDir}/compose.yaml";
@@ -324,6 +327,12 @@ let
         --numeric-owner \
         --preserve-permissions \
         --directory "$(dirname "$source_dir")"
+
+      if [[ -d "$source_dir" ]]; then
+        log "Restoring ownership on $source_dir"
+        chown -R ${dockerDataUserName}:${dockerDataGroup} "$source_dir"
+        find "$source_dir" -type d -exec chmod g+s {} +
+      fi
 
       log "Restore finished. Containers were not started."
     '';
